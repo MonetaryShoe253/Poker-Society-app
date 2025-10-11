@@ -35,7 +35,7 @@ export default function LeaderboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col items-center py-10 px-4">
+    <div className="min-h-screen bg-gray-300 flex flex-col items-center py-10 px-4">
       <div className="bg-white shadow-md rounded-2xl p-6 w-full max-w-lg">
         <h1 className="text-3xl font-bold mb-6 text-center">🏆 Leaderboard</h1>
 

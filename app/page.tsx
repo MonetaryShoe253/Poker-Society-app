@@ -1,90 +1,58 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabaseClient";
+import { useRouter } from "next/navigation";
 
-export default function AuthPage() {
+export default function Home() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [isLogin, setIsLogin] = useState(true);
+  const [mode, setMode] = useState<"login" | "signup">("login");
   const [loading, setLoading] = useState(false);
-  const [resetMode, setResetMode] = useState(false);
   const router = useRouter();
 
-  const handleSignUp = async () => {
-    setLoading(true);
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        emailRedirectTo: `${window.location.origin}/`,
-      },
-    });
-    setLoading(false);
+  useEffect(() => {
+    const checkUser = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (user) router.push("/profile"); // redirect if already logged in
+    };
+    checkUser();
+  }, [router]);
 
-    if (error) {
+  const handleSubmit = async () => {
+    setLoading(true);
+
+    try {
+      if (mode === "login") {
+        const { error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.auth.signUp({
+          email,
+          password,
+        });
+        if (error) throw error;
+        alert("Signup successful! Check your email to confirm your account.");
+      }
+      router.push("/profile");
+    } catch (error: any) {
       alert(error.message);
-      return;
+    } finally {
+      setLoading(false);
     }
-
-    const user = data.user;
-    if (user) {
-      // Create profile automatically
-      await supabase.from("profiles").insert({
-        id: user.id,
-        email: user.email,
-        username: user.email?.split("@")[0] ?? "user",
-        points: 0,
-      });
-    }
-
-    alert("Check your email to confirm your account before logging in.");
-  };
-
-  const handleLogin = async () => {
-    setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    setLoading(false);
-
-    if (error) {
-      alert(error.message);
-      return;
-    }
-
-    router.push("/leaderboard");
-  };
-
-  const handlePasswordReset = async () => {
-    if (!email) {
-      alert("Please enter your email to reset password.");
-      return;
-    }
-
-    setLoading(true);
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset`,
-    });
-    setLoading(false);
-
-    if (error) alert(error.message);
-    else alert("Check your email for the password reset link.");
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 p-4">
-      <div className="bg-white rounded-2xl shadow-md p-6 w-full max-w-sm">
-        <h1 className="text-2xl font-bold mb-6 text-center">
-          {resetMode
-            ? "Reset Password"
-            : isLogin
-            ? "Log In"
-            : "Create an Account"}
+    <div className="min-h-screen bg-gray-300 flex flex-col justify-center items-center p-4">
+      <div className="bg-white shadow-lg rounded-2xl p-6 w-full max-w-sm">
+        <h1 className="text-2xl font-bold mb-4 text-center">
+          {mode === "login" ? "Login" : "Sign Up"}
         </h1>
-
         <input
           type="email"
           placeholder="Email"
@@ -92,81 +60,44 @@ export default function AuthPage() {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
         />
+        <input
+          type="password"
+          placeholder="Password"
+          className="w-full p-2 mb-3 border rounded"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+        />
+        <button
+          onClick={handleSubmit}
+          className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700"
+          disabled={loading}
+        >
+          {loading ? "Loading..." : mode === "login" ? "Login" : "Sign Up"}
+        </button>
 
-        {!resetMode && (
-          <input
-            type="password"
-            placeholder="Password"
-            className="w-full p-2 mb-4 border rounded"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-        )}
-
-        {resetMode ? (
-          <button
-            onClick={handlePasswordReset}
-            disabled={loading}
-            className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700"
-          >
-            {loading ? "Sending..." : "Send Reset Link"}
-          </button>
-        ) : isLogin ? (
-          <button
-            onClick={handleLogin}
-            disabled={loading}
-            className="w-full bg-green-600 text-white py-2 rounded hover:bg-green-700"
-          >
-            {loading ? "Logging in..." : "Log In"}
-          </button>
-        ) : (
-          <button
-            onClick={handleSignUp}
-            disabled={loading}
-            className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700"
-          >
-            {loading ? "Signing up..." : "Sign Up"}
-          </button>
-        )}
-
-        <div className="text-center mt-4 text-sm text-gray-600">
-          {resetMode ? (
-            <button
-              onClick={() => setResetMode(false)}
-              className="text-blue-600 hover:underline"
-            >
-              Back to login
-            </button>
-          ) : isLogin ? (
+        <p className="mt-3 text-center text-sm text-gray-600">
+          {mode === "login" ? (
             <>
-              <p>
-                Don’t have an account?{" "}
-                <button
-                  onClick={() => setIsLogin(false)}
-                  className="text-blue-600 hover:underline"
-                >
-                  Sign up
-                </button>
-              </p>
+              Don't have an account?{" "}
               <button
-                onClick={() => setResetMode(true)}
-                className="text-sm text-gray-500 hover:underline mt-2"
+                className="text-blue-600 hover:underline"
+                onClick={() => setMode("signup")}
               >
-                Forgot password?
+                Sign Up
               </button>
             </>
           ) : (
-            <p>
+            <>
               Already have an account?{" "}
               <button
-                onClick={() => setIsLogin(true)}
                 className="text-blue-600 hover:underline"
+                onClick={() => setMode("login")}
               >
-                Log in
+                Login
               </button>
-            </p>
+            </>
           )}
-        </div>
+        </p>
       </div>
     </div>
   );
